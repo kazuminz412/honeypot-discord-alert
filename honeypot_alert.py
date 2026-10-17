@@ -4,7 +4,6 @@ import subprocess
 import os
 from dotenv import load_dotenv
 
-# Load secret configuration from .env file
 load_dotenv()
 WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 ABUSE_API_KEY = os.getenv("ABUSEIPDB_API_KEY")
@@ -35,19 +34,19 @@ def get_ip_info(ip):
 def send_discord_alert(ip, username, password=None, command=None):
     ip_details = get_ip_info(ip)
     
-    if password:
-        title = "🚨 ALERT: HACKER LOGIN DETECTED!"
-        description = f"**Hacker IP:** `{ip}`\n**Username:** `{username}`\n**Password:** `{password}`\n{'-'*20}{ip_details}"
-        color = 16711680
-    elif command:
+    if command is not None:
         title = "💻 ALERT: HACKER COMMAND EXECUTED!"
         description = f"**Hacker IP:** `{ip}`\n**Command:** `{command}`\n{'-'*20}{ip_details}"
         color = 16753920
+    else:
+        title = "🚨 ALERT: HACKER LOGIN DETECTED!"
+        description = f"**Hacker IP:** `{ip}`\n**Username:** `{username}`\n**Password:** `{password}`\n{'-'*20}{ip_details}"
+        color = 16711680
 
     data = {"embeds": [{"title": title, "description": description, "color": color}]}
     try:
         if WEBHOOK_URL:
-            requests.post(WEBHOOK_URL, json=data)
+            requests.post(WEBHOOK_URL, json=data, timeout=5)
     except Exception:
         pass
 
@@ -66,10 +65,12 @@ try:
             
             if event_id == "cowrie.login.success":
                 ip = data.get("src_ip")
-                send_discord_alert(ip, data.get("username"), password=data.get("password"))
+                pwd = data.get("password") or "(empty)"
+                send_discord_alert(ip, data.get("username"), password=pwd)
             elif event_id == "cowrie.command.input":
                 ip = data.get("src_ip")
-                send_discord_alert(ip, "N/A", command=data.get("input"))
+                cmd = data.get("input") or "(empty)"
+                send_discord_alert(ip, "N/A", command=cmd)
                 
         except json.JSONDecodeError:
             continue
